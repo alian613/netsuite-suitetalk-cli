@@ -1,4 +1,4 @@
-# Preparationn
+# Preparation
 
 - NetSuite ([Getting Started with OAuth 2.0](https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/section_157771281570.html))
     1. [Enabled the OAuth 2.0 Feature](https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/section_157771482304.html)
