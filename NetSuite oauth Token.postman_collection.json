@@ -1,0 +1,236 @@
+{
+	"info": {
+		"_postman_id": "f6d4a006-076d-4d15-828c-e06d3bbbdf6d",
+		"name": "NetSuite oauth Token",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "19748343"
+	},
+	"item": [
+		{
+			"name": "Get JSRSASIGN Crypto Library Copy",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.collectionVariables.set(\"jsrsasign-js\",responseBody);"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://kjur.github.io/jsrsasign/jsrsasign-latest-all-min.js",
+					"protocol": "https",
+					"host": [
+						"kjur",
+						"github",
+						"io"
+					],
+					"path": [
+						"jsrsasign",
+						"jsrsasign-latest-all-min.js"
+					]
+				},
+				"description": "The built-in crypto-js library does not support PS256 and other algorithms which are supported for client credentials. This request brings in library jsrsasign-js, which does support required algorithms. See https://github.com/kjur/jsrsasign. This and the code for request that utilize this library was adapted from https://stackoverflow.com/questions/53965446/how-to-sign-a-jwt-with-a-private-key-pem-in-cryptojs."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Access Token",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"var navigator = {}; \r",
+							"var window = {}; \r",
+							"eval(pm.globals.get(\"jsrsasign-js\"));\r",
+							"const cryptojs = require('crypto-js'); \r",
+							"\r",
+							"const jwtHeader = {\r",
+							"    alg: 'PS256',\r",
+							"    typ: 'JWT',\r",
+							"    kid: pm.environment.get('JWT_KID') \r",
+							"};\r",
+							"const jwtPayload = {\r",
+							"    iss: pm.environment.get('CONSUMER_KEY'), \r",
+							"    scope: ['restlets','rest_webservices'], \r",
+							"    iat: (new Date() / 1000),               \r",
+							"    exp: (new Date() / 1000) + (60*60),        \r",
+							"    aud: `${pm.environment.get('REST_SERVICES')}'/auth/oauth2/v1/token`\r",
+							"};\r",
+							"const secret = pm.environment.get('CERTIFICATE_PRIVATE_KEY');\r",
+							"const jwtToken = KJUR.jws.JWS.sign('PS256', JSON.stringify(jwtHeader), JSON.stringify(jwtPayload), secret);\r",
+							"\r",
+							"pm.collectionVariables.set('JWT_TOKEN', jwtToken);\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 200) {\r",
+							"\r",
+							"    const accessToken = pm.response.json().access_token;\r",
+							"\r",
+							"    pm.globals.set(\"ClientCredentialsAccessToken\", accessToken);\r",
+							"\r",
+							"}\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "grant_type",
+							"value": "client_credentials",
+							"type": "text"
+						},
+						{
+							"key": "client_assertion_type",
+							"value": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+							"type": "text"
+						},
+						{
+							"key": "client_assertion",
+							"value": "{{JWT_TOKEN}}",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{REST_SERVICES}}/auth/oauth2/v1/token",
+					"host": [
+						"{{REST_SERVICES}}"
+					],
+					"path": [
+						"auth",
+						"oauth2",
+						"v1",
+						"token"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Customer List",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{ClientCredentialsAccessToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{REST_SERVICES}}/record/v1/customer/",
+					"host": [
+						"{{REST_SERVICES}}"
+					],
+					"path": [
+						"record",
+						"v1",
+						"customer",
+						""
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Query SuiteQL",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{ClientCredentialsAccessToken}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Prefer",
+						"value": "transient",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"q\": \"SELECT scriptid, id, audslctrole, audgroup FROM scriptdeployment\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{REST_SERVICES}}/query/v1/suiteql?limit=10",
+					"host": [
+						"{{REST_SERVICES}}"
+					],
+					"path": [
+						"query",
+						"v1",
+						"suiteql"
+					],
+					"query": [
+						{
+							"key": "limit",
+							"value": "10"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "clientAssertion",
+			"value": ""
+		},
+		{
+			"key": "clientCredentialsAccessToken",
+			"value": ""
+		},
+		{
+			"key": "jsrsasign-js",
+			"value": ""
+		},
+		{
+			"key": "JWT_TOKEN",
+			"value": ""
+		},
+		{
+			"key": "JWT_KID",
+			"value": ""
+		}
+	]
+}
